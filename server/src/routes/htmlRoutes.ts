@@ -9,8 +9,8 @@ const router = Router();
 // Define route to serve index.html
 router.get('/', (_req, res) => {
   // Construct the path to index.html relative to the compiled htmlRoutes.js in the dist folder
-  // dist/routes/htmlRoutes.js -> ../../client/index.html
-  res.sendFile(path.join(__dirname, '../../client/index.html'));
+  // server/dist/routes/htmlRoutes.js -> ../../../client/index.html
+  res.sendFile(path.join(__dirname, '../../../client/index.html'));
 });
 
 export default router;
