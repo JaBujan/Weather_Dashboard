@@ -1,10 +1,16 @@
-// import path from 'node:path'; // Commented out as it's unused
-// import { fileURLToPath } from 'node:url'; // Commented out as it's unused
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
-// const __filename = fileURLToPath(import.meta.url); // Commented out as it's unused
-// const __dirname = path.dirname(__filename); // Commented out as it's unused
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const router = Router();
 
-// TODO: Define route to serve index.html
+// Define route to serve index.html
+router.get('/', (_req, res) => {
+  // Construct the path to index.html relative to the compiled htmlRoutes.js in the dist folder
+  // dist/routes/htmlRoutes.js -> ../../client/index.html
+  res.sendFile(path.join(__dirname, '../../client/index.html'));
+});
 
 export default router;
