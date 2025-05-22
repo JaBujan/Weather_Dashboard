@@ -249,17 +249,22 @@ Event Handlers
 
 */
 
-const handleSearchFormSubmit = (event: any): void => {
+const handleSearchFormSubmit = async (event: Event): Promise<void> => {
   event.preventDefault();
+  console.log('Search form submitted'); // New log
+  const rawCityName = searchInput.value;
+  console.log('Raw searchInput.value:', rawCityName); // New log
+  const cityName = searchInput.value.trim();
+  console.log('Trimmed cityName:', cityName); // New log
 
-  if (!searchInput.value) {
+  if (!cityName) {
+    console.error('City name is blank after trim.'); // New log
+    // TODO: Add error message to UI
     throw new Error('City cannot be blank');
   }
 
-  const search: string = searchInput.value.trim();
-  fetchWeather(search).then(() => {
-    getAndRenderHistory();
-  });
+  await fetchWeather(cityName);
+  await renderSearchHistory(await fetchSearchHistory());
   searchInput.value = '';
 };
 
