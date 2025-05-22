@@ -1,5 +1,10 @@
 import dotenv from 'dotenv';
+import dayjs from 'dayjs'; // Added import
 dotenv.config();
+
+// Retrieve API keys from environment variables
+const API_KEY = process.env.API_KEY;
+const API_BASE_URL = process.env.API_BASE_URL;
 
 // Define an interface for the Coordinates object
 interface Coordinates {
@@ -155,6 +160,106 @@ class WeatherService {
       // this.buildForecastArray(this.parseData);
     } else {
       return undefined;
+    }
+  }
+
+  static async getWeather(cityName: string) {
+    console.log(`[WeatherService] getWeather called for city: ${cityName}`);
+    if (!API_KEY || !API_BASE_URL) {
+      console.error('[WeatherService] API_KEY or API_BASE_URL is not defined. Check .env variables on server.');
+      console.log(`[WeatherService] Current API_KEY: ${API_KEY}, API_BASE_URL: ${API_BASE_URL}`); // Log current values
+      throw new Error('API configuration is missing on the server');
+    }
+
+    const weatherUrl = `${API_BASE_URL}/data/2.5/weather?q=${cityName}&appid=${API_KEY}&units=imperial`;
+    console.log(`[WeatherService] Fetching current weather from URL: ${weatherUrl}`);
+
+    try {
+      const weatherResponse = await fetch(weatherUrl);
+      console.log(`[WeatherService] Current weather API response status: ${weatherResponse.status} for ${cityName}`);
+      if (!weatherResponse.ok) {
+        const errorBody = await weatherResponse.text(); // Read error body as text
+        console.error(`[WeatherService] Error fetching current weather for ${cityName}. Status: ${weatherResponse.status}, Response Body: ${errorBody}`);
+        throw new Error(
+          `Failed to fetch current weather for ${cityName}. Status: ${weatherResponse.status}. Message: ${errorBody}`
+        );
+      }
+      const currentWeatherData = await weatherResponse.json();
+      console.log(`[WeatherService] Successfully fetched current weather for ${cityName}:`, currentWeatherData);
+
+      // Ensure coordinates are present before fetching forecast
+      if (!currentWeatherData.coord || typeof currentWeatherData.coord.lat === 'undefined' || typeof currentWeatherData.coord.lon === 'undefined') {
+        console.error(`[WeatherService] Missing coordinates for ${cityName}. Cannot fetch forecast.`);
+        throw new Error(`Missing coordinates for ${cityName}. Cannot fetch forecast.`);
+      }
+
+      const forecastData = await this.getForecast(currentWeatherData.coord.lat, currentWeatherData.coord.lon);
+      console.log(`[WeatherService] Forecast data received for ${cityName}:`, forecastData);
+
+      return [
+        {
+          id: currentWeatherData.id,
+          city: currentWeatherData.name,
+          date: dayjs.unix(currentWeatherData.dt).format('M/D/YYYY'),
+          icon: currentWeatherData.weather[0].icon,
+          iconDescription: currentWeatherData.weather[0].description,
+          tempF: currentWeatherData.main.temp,
+          humidity: currentWeatherData.main.humidity,
+          windSpeed: currentWeatherData.wind.speed,
+        },
+        ...forecastData,
+      ];
+    } catch (error) {
+      console.error(`[WeatherService] Error in getWeather for ${cityName}:`, error);
+      throw error; // Re-throw the error to be caught by the route handler
+    }
+  }
+
+  static async getForecast(lat: number, lon: number) {
+    console.log(`[WeatherService] getForecast called for lat: ${lat}, lon: ${lon}`);
+    if (!API_KEY || !API_BASE_URL) {
+      console.error('[WeatherService] API_KEY or API_BASE_URL is not defined for forecast. Check .env variables on server.');
+      console.log(`[WeatherService] Current API_KEY (forecast): ${API_KEY}, API_BASE_URL (forecast): ${API_BASE_URL}`);
+      throw new Error('API configuration is missing for forecast on the server');
+    }
+    const forecastUrl = `${API_BASE_URL}/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=imperial`;
+    console.log(`[WeatherService] Fetching forecast from URL: ${forecastUrl}`);
+
+    try {
+      const forecastResponse = await fetch(forecastUrl);
+      console.log(`[WeatherService] Forecast API response status: ${forecastResponse.status}`);
+      if (!forecastResponse.ok) {
+        const errorBody = await forecastResponse.text();
+        console.error(`[WeatherService] Error fetching forecast. Status: ${forecastResponse.status}, Response Body: ${errorBody}`);
+        throw new Error(
+          `Failed to fetch forecast data. Status: ${forecastResponse.status}. Message: ${errorBody}`
+        );
+      }
+      const forecastData = await forecastResponse.json();
+      console.log(`[WeatherService] Successfully fetched forecast data:`, forecastData);
+
+      const fiveDayForecast = [];
+      if (forecastData && forecastData.list) { // Check if forecastData.list exists
+        for (let i = 0; i < forecastData.list.length; i++) {
+          const dayData = forecastData.list[i];
+          if (dayData.dt_txt.includes('12:00:00')) {
+            fiveDayForecast.push({
+              date: dayjs(dayData.dt_txt).format('M/D/YYYY'),
+              icon: dayData.weather[0].icon,
+              iconDescription: dayData.weather[0].description,
+              tempF: dayData.main.temp,
+              humidity: dayData.main.humidity,
+              windSpeed: dayData.wind.speed,
+            });
+          }
+        }
+      } else {
+        console.warn('[WeatherService] Forecast data list is missing or empty.');
+      }
+      return fiveDayForecast;
+    } catch (error) {
+      console.error(`[WeatherService] Error in getForecast:`, error);
+      throw error; // Re-throw the error
     }
   }
 }
